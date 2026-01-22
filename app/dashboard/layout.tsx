@@ -9,7 +9,6 @@ import {
   ListChecks,
   Database,
   ShoppingCart,
-  Calculator,
   LogOut,
   Menu,
   X,

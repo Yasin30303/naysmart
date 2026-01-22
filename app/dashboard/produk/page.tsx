@@ -86,7 +86,7 @@ export default function ProdukPage() {
     }
   };
 
-  const handleEdit = (produk: any) => {
+  const handleEdit = (produk: { id: string; nama_produk: string; harga: { toString: () => string } }) => {
     setEditingId(produk.id);
     setFormData({
       nama_produk: produk.nama_produk,

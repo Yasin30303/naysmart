@@ -6,7 +6,7 @@
  * Fitur: CRUD kriteria dengan validasi total bobot = 1
  */
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { trpc } from "@/lib/trpc/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -90,12 +90,12 @@ export default function KriteriaPage() {
     }
   };
 
-  const handleEdit = (kriteria: any) => {
+  const handleEdit = (kriteria: { id: string; nama_kriteria: string; bobot: { toString: () => string }; tipe: string }) => {
     setEditingId(kriteria.id);
     setFormData({
       nama_kriteria: kriteria.nama_kriteria,
       bobot: kriteria.bobot.toString(),
-      tipe: kriteria.tipe,
+      tipe: kriteria.tipe as "benefit" | "cost",
     });
     setIsFormOpen(true);
   };
