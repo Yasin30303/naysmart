@@ -19,6 +19,7 @@ export default function ProdukPage() {
   const [formData, setFormData] = useState({
     nama_produk: "",
     harga: "",
+    harga_awal: "",
   });
 
   // Query data produk
@@ -58,7 +59,7 @@ export default function ProdukPage() {
   });
 
   const resetForm = () => {
-    setFormData({ nama_produk: "", harga: "" });
+    setFormData({ nama_produk: "", harga: "", harga_awal: "" });
     setEditingId(null);
     setIsFormOpen(false);
   };
@@ -67,8 +68,17 @@ export default function ProdukPage() {
     e.preventDefault();
 
     const harga = parseFloat(formData.harga);
+    const harga_awal = parseFloat(formData.harga_awal);
     if (isNaN(harga) || harga <= 0) {
-      alert("Harga harus berupa angka positif");
+      alert("Harga Jual harus berupa angka positif");
+      return;
+    }
+    if (isNaN(harga_awal) || harga_awal < 0) {
+      alert("Harga Awal/Modal harus berupa angka positif atau nol");
+      return;
+    }
+    if (harga_awal > harga) {
+      alert("Harga Awal/Modal tidak boleh lebih besar dari Harga Jual");
       return;
     }
 
@@ -77,20 +87,23 @@ export default function ProdukPage() {
         id: editingId,
         nama_produk: formData.nama_produk,
         harga,
+        harga_awal,
       });
     } else {
       createMutation.mutate({
         nama_produk: formData.nama_produk,
         harga,
+        harga_awal,
       });
     }
   };
 
-  const handleEdit = (produk: { id: string; nama_produk: string; harga: { toString: () => string } }) => {
+  const handleEdit = (produk: { id: string; nama_produk: string; harga: { toString: () => string }; harga_awal: { toString: () => string } }) => {
     setEditingId(produk.id);
     setFormData({
       nama_produk: produk.nama_produk,
       harga: produk.harga.toString(),
+      harga_awal: produk.harga_awal.toString(),
     });
     setIsFormOpen(true);
   };
@@ -127,7 +140,7 @@ export default function ProdukPage() {
               {editingId ? "Edit Produk" : "Tambah Produk Baru"}
             </h3>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <Label htmlFor="nama_produk">Nama Produk</Label>
                   <Input
@@ -141,7 +154,24 @@ export default function ProdukPage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="harga">Harga (Rp)</Label>
+                  <Label htmlFor="harga_awal">Harga Awal/Modal (Rp)</Label>
+                  <Input
+                    id="harga_awal"
+                    type="number"
+                    step="0.01"
+                    value={formData.harga_awal}
+                    onChange={(e) =>
+                      setFormData({ ...formData, harga_awal: e.target.value })
+                    }
+                    placeholder="8000"
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Harga beli/modal per unit
+                  </p>
+                </div>
+                <div>
+                  <Label htmlFor="harga">Harga Jual (Rp)</Label>
                   <Input
                     id="harga"
                     type="number"
@@ -153,6 +183,9 @@ export default function ProdukPage() {
                     placeholder="15000"
                     required
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Harga jual ke pelanggan
+                  </p>
                 </div>
               </div>
               <div className="flex gap-2">
@@ -176,7 +209,7 @@ export default function ProdukPage() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-200">
+              <tr className="border-b border-gray-200 bg-gray-50">
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">
                   No
                 </th>
@@ -184,7 +217,13 @@ export default function ProdukPage() {
                   Nama Produk
                 </th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">
-                  Harga
+                  Harga Awal/Modal
+                </th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">
+                  Harga Jual
+                </th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">
+                  Margin
                 </th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">
                   Aksi
@@ -194,51 +233,68 @@ export default function ProdukPage() {
             <tbody>
               {!produkList || produkList.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="text-center py-8 text-gray-500">
+                  <td colSpan={6} className="text-center py-8 text-gray-500">
                     Belum ada data produk. Klik Tambah Produk untuk memulai.
                   </td>
                 </tr>
               ) : (
-                produkList.map((produk, index) => (
-                  <tr
-                    key={produk.id}
-                    className="border-b border-gray-100 hover:bg-gray-50"
-                  >
-                    <td className="py-3 px-4">{index + 1}</td>
-                    <td className="py-3 px-4 font-medium">
-                      {produk.nama_produk}
-                    </td>
-                    <td className="py-3 px-4">
-                      Rp{" "}
-                      {parseFloat(produk.harga.toString()).toLocaleString(
-                        "id-ID",
-                      )}
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleEdit(produk)}
-                        >
-                          <Pencil className="w-3 h-3 mr-1" />
-                          Edit
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() =>
-                            handleDelete(produk.id, produk.nama_produk)
-                          }
-                          disabled={deleteMutation.isPending}
-                        >
-                          <Trash2 className="w-3 h-3 mr-1" />
-                          Hapus
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                produkList.map((produk, index) => {
+                  const hargaJual = parseFloat(produk.harga.toString());
+                  const hargaAwal = parseFloat(produk.harga_awal.toString());
+                  const margin = hargaJual - hargaAwal;
+                  const marginPersen = hargaAwal > 0 ? ((margin / hargaAwal) * 100).toFixed(0) : 0;
+                  
+                  return (
+                    <tr
+                      key={produk.id}
+                      className="border-b border-gray-100 hover:bg-gray-50"
+                    >
+                      <td className="py-3 px-4">{index + 1}</td>
+                      <td className="py-3 px-4 font-medium">
+                        {produk.nama_produk}
+                      </td>
+                      <td className="py-3 px-4">
+                        Rp{" "}
+                        {hargaAwal.toLocaleString("id-ID")}
+                      </td>
+                      <td className="py-3 px-4">
+                        Rp{" "}
+                        {hargaJual.toLocaleString("id-ID")}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="text-green-600 font-medium">
+                          Rp {margin.toLocaleString("id-ID")}
+                        </span>
+                        <span className="text-xs text-gray-500 ml-1">
+                          ({marginPersen}%)
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleEdit(produk)}
+                          >
+                            <Pencil className="w-3 h-3 mr-1" />
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() =>
+                              handleDelete(produk.id, produk.nama_produk)
+                            }
+                            disabled={deleteMutation.isPending}
+                          >
+                            <Trash2 className="w-3 h-3 mr-1" />
+                            Hapus
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

@@ -14,23 +14,26 @@ async function main() {
   console.log("Creating products...");
 
   const produkData = [
-    { nama_produk: "Kopi Susu", harga: 15000 },
-    { nama_produk: "Es Teh", harga: 8000 },
-    { nama_produk: "Nasi Goreng", harga: 20000 },
-    { nama_produk: "Mie Goreng", harga: 18000 },
-    { nama_produk: "Jus Jeruk", harga: 12000 },
-    { nama_produk: "Roti Bakar", harga: 10000 },
-    { nama_produk: "Pisang Goreng", harga: 8000 },
+    { nama_produk: "Kopi Susu", harga: 15000, harga_awal: 8000 },
+    { nama_produk: "Es Teh", harga: 8000, harga_awal: 3000 },
+    { nama_produk: "Nasi Goreng", harga: 20000, harga_awal: 12000 },
+    { nama_produk: "Mie Goreng", harga: 18000, harga_awal: 10000 },
+    { nama_produk: "Jus Jeruk", harga: 12000, harga_awal: 6000 },
+    { nama_produk: "Roti Bakar", harga: 10000, harga_awal: 5000 },
+    { nama_produk: "Pisang Goreng", harga: 8000, harga_awal: 4000 },
   ];
 
   const produkList = [];
   for (const data of produkData) {
     const produk = await prisma.produk.upsert({
       where: { nama_produk: data.nama_produk },
-      update: {},
+      update: {
+        harga_awal: new Decimal(data.harga_awal),
+      },
       create: {
         nama_produk: data.nama_produk,
         harga: new Decimal(data.harga),
+        harga_awal: new Decimal(data.harga_awal),
       },
     });
     produkList.push(produk);
@@ -38,29 +41,53 @@ async function main() {
 
   console.log(`✓ Created ${produkList.length} products`);
 
-  // 3. Create Criteria (total weight = 1.0000)
-  console.log("Creating criteria...");
+  // 3. Create Criteria (LOCKED - total weight = 1.0000)
+  // These criteria are fixed and cannot be edited by users
+  console.log("Creating criteria (locked)...");
+
+  // First, delete existing criteria to reset with correct values
+  await prisma.kriteria.deleteMany({});
 
   const kriteriaData = [
     {
-      nama_kriteria: "Jumlah Penjualan",
-      bobot: 0.3,
-      tipe: "benefit",
+      nama_kriteria: "Stok Terjual",
+      bobot: 0.25,
+      tipe: "benefit", // Higher is better
     },
     {
-      nama_kriteria: "Pendapatan",
-      bobot: 0.3,
-      tipe: "benefit",
+      nama_kriteria: "Keuntungan",
+      bobot: 0.30,
+      tipe: "benefit", // Higher is better (harga_jual - harga_awal) * stok_terjual
     },
     {
-      nama_kriteria: "Stok Sisa",
-      bobot: 0.2,
-      tipe: "cost",
+      nama_kriteria: "Sisa Produk",
+      bobot: 0.10,
+      tipe: "cost", // Lower is better
     },
     {
-      nama_kriteria: "Margin Keuntungan",
-      bobot: 0.2,
-      tipe: "benefit",
+      nama_kriteria: "Harga",
+      bobot: 0.03,
+      tipe: "benefit", // Higher selling price is better
+    },
+    {
+      nama_kriteria: "Harga Awal",
+      bobot: 0.02,
+      tipe: "cost", // Lower cost price is better
+    },
+    {
+      nama_kriteria: "Stok Awal",
+      bobot: 0.05,
+      tipe: "benefit", // Higher initial stock shows popularity
+    },
+    {
+      nama_kriteria: "Omzet",
+      bobot: 0.20,
+      tipe: "benefit", // Higher revenue is better (stok_terjual * harga)
+    },
+    {
+      nama_kriteria: "Hari Penjualan",
+      bobot: 0.05,
+      tipe: "benefit", // More selling days is better
     },
   ];
 

@@ -4,6 +4,7 @@
  * Halaman Input Nilai Alternatif
  * Pemilik input nilai setiap kriteria untuk setiap produk
  * Data ini yang akan digunakan untuk perhitungan SMART
+ * Fitur: Auto-load dari data penjualan & stok
  */
 
 import { useState, useEffect } from "react";
@@ -11,7 +12,7 @@ import { trpc } from "@/lib/trpc/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Save, Calendar } from "lucide-react";
+import { Save, Calendar, RefreshCw, Zap, AlertCircle, CheckCircle } from "lucide-react";
 
 export default function NilaiAlternatifPage() {
   const [selectedDate, setSelectedDate] = useState<string>(
@@ -20,6 +21,7 @@ export default function NilaiAlternatifPage() {
   const [nilaiData, setNilaiData] = useState<
     Record<string, Record<string, string>>
   >({}); // produk_id -> kriteria_id -> nilai
+  const [autoLoadStatus, setAutoLoadStatus] = useState<string | null>(null);
 
   // Queries
   const { data: produkList } = trpc.produk.list.useQuery();
@@ -28,6 +30,13 @@ export default function NilaiAlternatifPage() {
     trpc.smart.getNilaiAlternatif.useQuery(
       { tanggal: new Date(selectedDate) },
       { enabled: !!selectedDate },
+    );
+  
+  // Auto-calculate query
+  const { refetch: refetchAuto } = 
+    trpc.smart.getAutoCalculatedValues.useQuery(
+      { tanggal: new Date(selectedDate) },
+      { enabled: false } // Manual trigger only
     );
 
   // Mutation
@@ -43,7 +52,7 @@ export default function NilaiAlternatifPage() {
 
   // Load existing data
   useEffect(() => {
-    if (nilaiAlternatif) {
+    if (nilaiAlternatif && nilaiAlternatif.length > 0) {
       const dataMap: Record<string, Record<string, string>> = {};
       nilaiAlternatif.forEach((nilai) => {
         if (!dataMap[nilai.produk_id]) {
@@ -52,10 +61,45 @@ export default function NilaiAlternatifPage() {
         dataMap[nilai.produk_id][nilai.kriteria_id] = nilai.nilai.toString();
       });
       setNilaiData(dataMap);
+      setAutoLoadStatus(null);
     } else {
       setNilaiData({});
     }
   }, [nilaiAlternatif]);
+
+  // Handle auto-load values
+  const handleAutoLoad = async () => {
+    setAutoLoadStatus("loading");
+    const result = await refetchAuto();
+    
+    if (result.data) {
+      const { values, summary } = result.data;
+      
+      // Convert to string format for input fields
+      const dataMap: Record<string, Record<string, string>> = {};
+      for (const [produkId, kriteriaValues] of Object.entries(values)) {
+        dataMap[produkId] = {};
+        for (const [kriteriaId, nilai] of Object.entries(kriteriaValues)) {
+          dataMap[produkId][kriteriaId] = nilai.toString();
+        }
+      }
+      
+      setNilaiData(dataMap);
+      
+      // Show status
+      if (!summary.hasStokData && !summary.hasPenjualanData) {
+        setAutoLoadStatus("no-data");
+      } else if (!summary.hasStokData) {
+        setAutoLoadStatus("no-stok");
+      } else if (!summary.hasPenjualanData) {
+        setAutoLoadStatus("no-penjualan");
+      } else {
+        setAutoLoadStatus("success");
+      }
+    } else {
+      setAutoLoadStatus("error");
+    }
+  };
 
   const handleInputChange = (
     produk_id: string,
@@ -129,9 +173,9 @@ export default function NilaiAlternatifPage() {
             </p>
           </div>
 
-          {/* Date Picker */}
-          <div className="mb-6 flex items-center justify-between">
-            <div className="flex-1 max-w-xs">
+          {/* Date Picker & Actions */}
+          <div className="mb-6 flex flex-wrap items-end gap-4">
+            <div className="flex-1 min-w-[200px] max-w-xs">
               <Label htmlFor="tanggal">Pilih Tanggal</Label>
               <div className="relative">
                 <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -139,27 +183,97 @@ export default function NilaiAlternatifPage() {
                   id="tanggal"
                   type="date"
                   value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
+                  onChange={(e) => {
+                    setSelectedDate(e.target.value);
+                    setAutoLoadStatus(null);
+                  }}
                   className="pl-10"
                 />
               </div>
             </div>
+            
+            <Button
+              onClick={handleAutoLoad}
+              variant="outline"
+              className="bg-yellow-50 border-yellow-300 text-yellow-700 hover:bg-yellow-100"
+            >
+              <Zap className="w-4 h-4 mr-2" />
+              Auto-Load dari Data
+            </Button>
+            
             <Button
               onClick={handleSave}
               disabled={bulkInputMutation.isPending}
-              size="lg"
             >
               <Save className="w-4 h-4 mr-2" />
               {bulkInputMutation.isPending ? "Menyimpan..." : "Simpan Semua"}
             </Button>
           </div>
 
+          {/* Auto-Load Status */}
+          {autoLoadStatus && (
+            <div className={`mb-6 p-4 rounded-lg flex items-start gap-3 ${
+              autoLoadStatus === "success" ? "bg-green-50 border border-green-200" :
+              autoLoadStatus === "loading" ? "bg-blue-50 border border-blue-200" :
+              autoLoadStatus === "error" ? "bg-red-50 border border-red-200" :
+              "bg-yellow-50 border border-yellow-200"
+            }`}>
+              {autoLoadStatus === "success" && (
+                <>
+                  <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-green-800">Data berhasil dimuat!</p>
+                    <p className="text-sm text-green-700">Nilai kriteria telah dihitung dari data penjualan dan stok. Anda dapat mengedit jika perlu.</p>
+                  </div>
+                </>
+              )}
+              {autoLoadStatus === "loading" && (
+                <>
+                  <RefreshCw className="w-5 h-5 text-blue-600 mt-0.5 animate-spin" />
+                  <p className="font-medium text-blue-800">Memuat data...</p>
+                </>
+              )}
+              {autoLoadStatus === "no-data" && (
+                <>
+                  <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-yellow-800">Tidak ada data untuk tanggal ini</p>
+                    <p className="text-sm text-yellow-700">Pastikan sudah ada data stok harian dan penjualan untuk tanggal {selectedDate}</p>
+                  </div>
+                </>
+              )}
+              {autoLoadStatus === "no-stok" && (
+                <>
+                  <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-yellow-800">Data stok tidak ditemukan</p>
+                    <p className="text-sm text-yellow-700">Nilai penjualan dimuat, tapi stok sisa bernilai 0. Tambahkan data stok harian terlebih dahulu.</p>
+                  </div>
+                </>
+              )}
+              {autoLoadStatus === "no-penjualan" && (
+                <>
+                  <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-yellow-800">Data penjualan tidak ditemukan</p>
+                    <p className="text-sm text-yellow-700">Nilai stok dimuat, tapi penjualan bernilai 0. Tambahkan transaksi penjualan terlebih dahulu.</p>
+                  </div>
+                </>
+              )}
+              {autoLoadStatus === "error" && (
+                <>
+                  <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
+                  <p className="font-medium text-red-800">Gagal memuat data. Silakan coba lagi.</p>
+                </>
+              )}
+            </div>
+          )}
+
           {/* Info */}
           <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm text-blue-800">
-              <strong>Petunjuk:</strong> Input nilai untuk setiap kriteria pada
-              setiap produk. Nilai dapat berupa angka desimal. Pastikan semua
-              kolom terisi sebelum menyimpan.
+              <strong>Petunjuk:</strong> Klik <strong>&quot;Auto-Load dari Data&quot;</strong> untuk mengisi nilai otomatis dari data penjualan dan stok. 
+              Anda dapat mengedit nilai secara manual jika diperlukan. Pastikan semua kolom terisi sebelum menyimpan.
             </p>
           </div>
 

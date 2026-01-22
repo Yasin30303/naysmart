@@ -14,6 +14,7 @@ export const produkRouter = router({
       z.object({
         nama_produk: z.string().min(1, "Nama produk harus diisi"),
         harga: z.number().positive("Harga harus lebih dari 0"),
+        harga_awal: z.number().min(0, "Harga awal tidak boleh negatif").default(0),
       }),
     )
     .mutation(async ({ input }) => {
@@ -21,6 +22,7 @@ export const produkRouter = router({
         data: {
           nama_produk: input.nama_produk,
           harga: new Decimal(input.harga),
+          harga_awal: new Decimal(input.harga_awal),
         },
       });
       return produk;
@@ -58,6 +60,7 @@ export const produkRouter = router({
         id: z.string(),
         nama_produk: z.string().min(1, "Nama produk harus diisi"),
         harga: z.number().positive("Harga harus lebih dari 0"),
+        harga_awal: z.number().min(0, "Harga awal tidak boleh negatif").default(0),
       }),
     )
     .mutation(async ({ input }) => {
@@ -66,6 +69,7 @@ export const produkRouter = router({
         data: {
           nama_produk: input.nama_produk,
           harga: new Decimal(input.harga),
+          harga_awal: new Decimal(input.harga_awal),
         },
       });
       return produk;

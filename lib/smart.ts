@@ -188,11 +188,11 @@ function hitungSkorAkhir(
  * STEP 4: Generate ranking dan rekomendasi
  * Ranking: 1 = terbaik (skor tertinggi)
  *
- * Rekomendasi berdasarkan kuartil:
- * - Q4 (Top 25%): "tambah" - produk paling laku, tambah stok
- * - Q3 (25-50%): "tetap" - produk cukup laku, pertahankan
- * - Q2 (50-75%): "kurangi" - produk kurang laku, kurangi stok
- * - Q1 (Bottom 25%): "hentikan" - produk tidak laku, pertimbangkan hentikan
+ * Rekomendasi berdasarkan rentang skor akhir:
+ * - Skor 0.80 - 1.00: "Dilanjutkan ditambah jumlah 20%"
+ * - Skor 0.50 - 0.79: "Dilanjutkan jumlah tetap"
+ * - Skor 0.15 - 0.49: "Dilanjutkan dikurangi jumlah 20%"
+ * - Skor <= 0.14: "Dihentikan"
  */
 function generateRankingDanRekomendasi(
   skorData: { produk_id: string; nama_produk: string; skor_akhir: number }[],
@@ -200,22 +200,22 @@ function generateRankingDanRekomendasi(
   // Sort descending (skor tertinggi = ranking 1)
   const sorted = [...skorData].sort((a, b) => b.skor_akhir - a.skor_akhir);
 
-  const totalProduk = sorted.length;
   const results: SMARTResult[] = [];
 
   sorted.forEach((item, index) => {
     const ranking = index + 1;
-    const percentile = (ranking / totalProduk) * 100;
+    const skor = item.skor_akhir;
 
+    // Rekomendasi berdasarkan rentang skor akhir
     let rekomendasi: string;
-    if (percentile <= 25) {
-      rekomendasi = "tambah";
-    } else if (percentile <= 50) {
-      rekomendasi = "tetap";
-    } else if (percentile <= 75) {
-      rekomendasi = "kurangi";
+    if (skor >= 0.80) {
+      rekomendasi = "Dilanjutkan ditambah jumlah 20%";
+    } else if (skor >= 0.50) {
+      rekomendasi = "Dilanjutkan jumlah tetap";
+    } else if (skor >= 0.15) {
+      rekomendasi = "Dilanjutkan dikurangi jumlah 20%";
     } else {
-      rekomendasi = "hentikan";
+      rekomendasi = "Dihentikan";
     }
 
     results.push({

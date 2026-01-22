@@ -84,7 +84,8 @@ model Verification {
 model Produk {
   id           String   @id @default(cuid())
   nama_produk  String   @unique
-  harga        Decimal  @db.Decimal(12, 2)
+  harga        Decimal  @db.Decimal(12, 2) // Harga jual
+  harga_awal   Decimal  @db.Decimal(12, 2) @default(0) // Harga modal/beli
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   
