@@ -101,19 +101,6 @@ export default function LoginPage() {
           </form>
 
           {/* Demo Credentials */}
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-            <p className="text-xs font-semibold text-gray-700 mb-2">
-              Demo Login:
-            </p>
-            <div className="text-xs text-gray-600 space-y-1">
-              <p>
-                <strong>Pemilik:</strong> pemilik@example.com / password123
-              </p>
-              <p>
-                <strong>Staf:</strong> staf@example.com / password123
-              </p>
-            </div>
-          </div>
         </div>
 
         <p className="text-center text-sm text-gray-500 mt-6">
