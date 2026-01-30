@@ -122,7 +122,8 @@ export default function StokHarianPage() {
             <p className="text-sm text-blue-800">
               <strong>Catatan:</strong> Input stok awal di pagi hari sebelum
               transaksi penjualan. Stok terjual akan update otomatis saat ada
-              transaksi. Isi semua stok lalu klik &quot;Simpan Semua&quot; untuk menyimpan sekaligus.
+              transaksi. Isi semua stok lalu klik &quot;Simpan Semua&quot; untuk
+              menyimpan sekaligus.
             </p>
           </div>
 
@@ -130,7 +131,11 @@ export default function StokHarianPage() {
           <div className="mb-4 flex justify-end">
             <Button
               onClick={handleSaveAll}
-              disabled={bulkUpsertMutation.isPending || !produkList || produkList.length === 0}
+              disabled={
+                bulkUpsertMutation.isPending ||
+                !produkList ||
+                produkList.length === 0
+              }
               className="flex items-center gap-2"
             >
               {bulkUpsertMutation.isPending ? (
@@ -142,7 +147,9 @@ export default function StokHarianPage() {
                 <>
                   <Save className="w-4 h-4" />
                   Simpan Semua
-                  {hasChanges && <span className="ml-1 text-yellow-300">●</span>}
+                  {hasChanges && (
+                    <span className="ml-1 text-yellow-300">●</span>
+                  )}
                 </>
               )}
             </Button>
