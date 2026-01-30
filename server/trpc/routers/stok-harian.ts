@@ -57,6 +57,66 @@ export const stokHarianRouter = router({
       }
     }),
 
+  // BULK CREATE/UPDATE - Input semua stok harian sekaligus
+  bulkUpsert: pemilikProcedure
+    .input(
+      z.object({
+        tanggal: z.date(),
+        items: z.array(
+          z.object({
+            produk_id: z.string(),
+            stok_awal: z.number().int().min(0, "Stok awal tidak boleh negatif"),
+          }),
+        ),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const results = [];
+
+      for (const item of input.items) {
+        // Cek apakah sudah ada stok untuk tanggal & produk ini
+        const existing = await prisma.stokHarian.findUnique({
+          where: {
+            tanggal_produk_id: {
+              tanggal: input.tanggal,
+              produk_id: item.produk_id,
+            },
+          },
+        });
+
+        if (existing) {
+          // Update: pertahankan stok_terjual, recalculate stok_sisa
+          const stok = await prisma.stokHarian.update({
+            where: {
+              tanggal_produk_id: {
+                tanggal: input.tanggal,
+                produk_id: item.produk_id,
+              },
+            },
+            data: {
+              stok_awal: item.stok_awal,
+              stok_sisa: item.stok_awal - existing.stok_terjual,
+            },
+          });
+          results.push(stok);
+        } else {
+          // Create baru
+          const stok = await prisma.stokHarian.create({
+            data: {
+              tanggal: input.tanggal,
+              produk_id: item.produk_id,
+              stok_awal: item.stok_awal,
+              stok_terjual: 0,
+              stok_sisa: item.stok_awal,
+            },
+          });
+          results.push(stok);
+        }
+      }
+
+      return results;
+    }),
+
   // READ - List stok harian per tanggal
   listByDate: protectedProcedure
     .input(z.object({ tanggal: z.date() }))

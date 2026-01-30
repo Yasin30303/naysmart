@@ -5,19 +5,20 @@
  * Pemilik input stok awal setiap hari
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Save, Calendar } from "lucide-react";
+import { Save, Calendar, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 
 export default function StokHarianPage() {
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split("T")[0],
   );
-  const [editMode, setEditMode] = useState<Record<string, number>>({});
+  const [stokInputs, setStokInputs] = useState<Record<string, number>>({});
+  const [hasChanges, setHasChanges] = useState(false);
 
   // Queries
   const { data: produkList } = trpc.produk.list.useQuery();
@@ -26,42 +27,56 @@ export default function StokHarianPage() {
     { enabled: !!selectedDate },
   );
 
-  // Mutation
-  const upsertMutation = trpc.stokHarian.upsert.useMutation({
+  // Initialize inputs when stokList or produkList changes
+  useEffect(() => {
+    if (produkList) {
+      const stokMap = new Map(stokList?.map((s) => [s.produk_id, s]) || []);
+      const initialInputs: Record<string, number> = {};
+      produkList.forEach((produk) => {
+        const existingStok = stokMap.get(produk.id);
+        initialInputs[produk.id] = existingStok?.stok_awal ?? 0;
+      });
+      setStokInputs(initialInputs);
+      setHasChanges(false);
+    }
+  }, [produkList, stokList, selectedDate]);
+
+  // Mutation for bulk save
+  const bulkUpsertMutation = trpc.stokHarian.bulkUpsert.useMutation({
     onSuccess: () => {
       refetch();
-      alert("Stok berhasil disimpan");
+      setHasChanges(false);
+      alert("Semua stok berhasil disimpan!");
     },
     onError: (error) => {
       alert(`Error: ${error.message}`);
     },
   });
 
-  const handleSave = (produk_id: string) => {
-    const stok_awal = editMode[produk_id];
-    if (stok_awal === undefined || stok_awal < 0) {
-      alert("Stok awal tidak valid");
+  const handleInputChange = (produk_id: string, value: string) => {
+    const numValue = parseInt(value) || 0;
+    setStokInputs({ ...stokInputs, [produk_id]: numValue });
+    setHasChanges(true);
+  };
+
+  const handleSaveAll = () => {
+    if (!produkList || produkList.length === 0) {
+      alert("Tidak ada produk untuk disimpan");
       return;
     }
 
-    upsertMutation.mutate({
+    const items = produkList.map((produk) => ({
+      produk_id: produk.id,
+      stok_awal: stokInputs[produk.id] ?? 0,
+    }));
+
+    bulkUpsertMutation.mutate({
       tanggal: new Date(selectedDate),
-      produk_id,
-      stok_awal,
+      items,
     });
-
-    // Clear edit mode
-    const newEditMode = { ...editMode };
-    delete newEditMode[produk_id];
-    setEditMode(newEditMode);
   };
 
-  const handleInputChange = (produk_id: string, value: string) => {
-    const numValue = parseInt(value) || 0;
-    setEditMode({ ...editMode, [produk_id]: numValue });
-  };
-
-  // Create map of existing stock
+  // Create map of existing stock for display
   const stokMap = new Map(stokList?.map((s) => [s.produk_id, s]) || []);
 
   return (
@@ -107,8 +122,30 @@ export default function StokHarianPage() {
             <p className="text-sm text-blue-800">
               <strong>Catatan:</strong> Input stok awal di pagi hari sebelum
               transaksi penjualan. Stok terjual akan update otomatis saat ada
-              transaksi.
+              transaksi. Isi semua stok lalu klik &quot;Simpan Semua&quot; untuk menyimpan sekaligus.
             </p>
+          </div>
+
+          {/* Save All Button */}
+          <div className="mb-4 flex justify-end">
+            <Button
+              onClick={handleSaveAll}
+              disabled={bulkUpsertMutation.isPending || !produkList || produkList.length === 0}
+              className="flex items-center gap-2"
+            >
+              {bulkUpsertMutation.isPending ? (
+                <>
+                  <span className="animate-spin">⏳</span>
+                  Menyimpan...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  Simpan Semua
+                  {hasChanges && <span className="ml-1 text-yellow-300">●</span>}
+                </>
+              )}
+            </Button>
           </div>
 
           {/* Table */}
@@ -132,7 +169,7 @@ export default function StokHarianPage() {
                     Stok Sisa
                   </th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-700">
-                    Aksi
+                    Status
                   </th>
                 </tr>
               </thead>
@@ -146,9 +183,7 @@ export default function StokHarianPage() {
                 ) : (
                   produkList.map((produk, index) => {
                     const stok = stokMap.get(produk.id);
-                    const isEditing = editMode.hasOwnProperty(produk.id);
-                    const editValue =
-                      editMode[produk.id] ?? stok?.stok_awal ?? 0;
+                    const inputValue = stokInputs[produk.id] ?? 0;
 
                     return (
                       <tr
@@ -160,21 +195,16 @@ export default function StokHarianPage() {
                           {produk.nama_produk}
                         </td>
                         <td className="py-3 px-4">
-                          {isEditing ? (
-                            <Input
-                              type="number"
-                              min="0"
-                              value={editValue}
-                              onChange={(e) =>
-                                handleInputChange(produk.id, e.target.value)
-                              }
-                              className="w-24"
-                            />
-                          ) : (
-                            <span className="font-medium">
-                              {stok?.stok_awal ?? "-"}
-                            </span>
-                          )}
+                          <Input
+                            type="number"
+                            min="0"
+                            value={inputValue}
+                            onChange={(e) =>
+                              handleInputChange(produk.id, e.target.value)
+                            }
+                            className="w-24"
+                            placeholder="0"
+                          />
                         </td>
                         <td className="py-3 px-4">
                           <span className="text-red-600 font-medium">
@@ -193,42 +223,15 @@ export default function StokHarianPage() {
                           </span>
                         </td>
                         <td className="py-3 px-4">
-                          {isEditing ? (
-                            <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                onClick={() => handleSave(produk.id)}
-                                disabled={upsertMutation.isPending}
-                              >
-                                <Save className="w-3 h-3 mr-1" />
-                                Simpan
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  const newEditMode = { ...editMode };
-                                  delete newEditMode[produk.id];
-                                  setEditMode(newEditMode);
-                                }}
-                              >
-                                Batal
-                              </Button>
-                            </div>
+                          {stok ? (
+                            <span className="inline-flex items-center gap-1 text-green-600 text-sm">
+                              <CheckCircle className="w-4 h-4" />
+                              Tersimpan
+                            </span>
                           ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() =>
-                                setEditMode({
-                                  ...editMode,
-                                  [produk.id]: stok?.stok_awal ?? 0,
-                                })
-                              }
-                            >
-                              <Plus className="w-3 h-3 mr-1" />
-                              {stok ? "Edit" : "Input"}
-                            </Button>
+                            <span className="text-yellow-600 text-sm">
+                              Belum diinput
+                            </span>
                           )}
                         </td>
                       </tr>
