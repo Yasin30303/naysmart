@@ -7,6 +7,7 @@
 
 import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc/client";
+import { getTodayString, parseToUTCDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,16 +15,14 @@ import { Save, Calendar, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 
 export default function StokHarianPage() {
-  const [selectedDate, setSelectedDate] = useState<string>(
-    new Date().toISOString().split("T")[0],
-  );
+  const [selectedDate, setSelectedDate] = useState<string>(getTodayString());
   const [stokInputs, setStokInputs] = useState<Record<string, number>>({});
   const [hasChanges, setHasChanges] = useState(false);
 
   // Queries
   const { data: produkList } = trpc.produk.list.useQuery();
   const { data: stokList, refetch } = trpc.stokHarian.listByDate.useQuery(
-    { tanggal: new Date(selectedDate) },
+    { tanggal: parseToUTCDate(selectedDate) },
     { enabled: !!selectedDate },
   );
 
@@ -71,7 +70,7 @@ export default function StokHarianPage() {
     }));
 
     bulkUpsertMutation.mutate({
-      tanggal: new Date(selectedDate),
+      tanggal: parseToUTCDate(selectedDate),
       items,
     });
   };
@@ -111,7 +110,7 @@ export default function StokHarianPage() {
             <div className="pt-6">
               <p className="text-sm text-gray-600">
                 <strong>
-                  {format(new Date(selectedDate), "dd MMMM yyyy")}
+                  {format(parseToUTCDate(selectedDate), "dd MMMM yyyy")}
                 </strong>
               </p>
             </div>

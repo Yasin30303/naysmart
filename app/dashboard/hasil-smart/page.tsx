@@ -8,6 +8,7 @@
 
 import { useState } from "react";
 import { trpc } from "@/lib/trpc/client";
+import { getTodayString, parseToUTCDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -15,13 +16,14 @@ import { Calculator, TrendingUp, TrendingDown, Minus, X } from "lucide-react";
 import { format } from "date-fns";
 
 export default function HasilSMARTPage() {
-  const [selectedDate, setSelectedDate] = useState<string>(
-    new Date().toISOString().split("T")[0],
-  );
+  const [selectedDate, setSelectedDate] = useState<string>(getTodayString());
+
+  // Get utils for query invalidation
+  const utils = trpc.useUtils();
 
   // Queries
   const { data: hasilSMART, refetch } = trpc.smart.getHasil.useQuery(
-    { tanggal: new Date(selectedDate) },
+    { tanggal: parseToUTCDate(selectedDate) },
     { enabled: !!selectedDate },
   );
 
@@ -31,6 +33,9 @@ export default function HasilSMARTPage() {
   const hitungMutation = trpc.smart.hitung.useMutation({
     onSuccess: () => {
       refetch();
+      // Invalidate all SMART queries across the app
+      utils.smart.getHasil.invalidate();
+      utils.smart.listTanggalHasil.invalidate();
       alert("Perhitungan SMART berhasil!");
     },
     onError: (error) => {
@@ -41,10 +46,10 @@ export default function HasilSMARTPage() {
   const handleHitung = () => {
     if (
       confirm(
-        `Hitung SMART untuk tanggal ${format(new Date(selectedDate), "dd MMM yyyy")}?`,
+        `Hitung SMART untuk tanggal ${format(parseToUTCDate(selectedDate), "dd MMM yyyy")}?`,
       )
     ) {
-      hitungMutation.mutate({ tanggal: new Date(selectedDate) });
+      hitungMutation.mutate({ tanggal: parseToUTCDate(selectedDate) });
     }
   };
 
@@ -68,7 +73,10 @@ export default function HasilSMARTPage() {
         className: "bg-yellow-100 text-yellow-800 border border-yellow-300",
         text: rekomendasi,
       };
-    } else if (rekomendasi.includes("Dihentikan") || rekomendasi === "hentikan") {
+    } else if (
+      rekomendasi.includes("Dihentikan") ||
+      rekomendasi === "hentikan"
+    ) {
       return {
         icon: <X className="w-4 h-4" />,
         className: "bg-red-100 text-red-800 border border-red-300",
@@ -185,14 +193,22 @@ export default function HasilSMARTPage() {
                 </p>
                 <p className="text-xs text-green-600 mb-1">Skor 0.80 - 1.00</p>
                 <p className="text-2xl font-bold text-green-900">
-                  {hasilSMART.filter((h) => h.rekomendasi.includes("ditambah")).length}
+                  {
+                    hasilSMART.filter((h) => h.rekomendasi.includes("ditambah"))
+                      .length
+                  }
                 </p>
               </div>
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-blue-700 font-medium">Jumlah Tetap</p>
+                <p className="text-sm text-blue-700 font-medium">
+                  Jumlah Tetap
+                </p>
                 <p className="text-xs text-blue-600 mb-1">Skor 0.50 - 0.79</p>
                 <p className="text-2xl font-bold text-blue-900">
-                  {hasilSMART.filter((h) => h.rekomendasi.includes("tetap")).length}
+                  {
+                    hasilSMART.filter((h) => h.rekomendasi.includes("tetap"))
+                      .length
+                  }
                 </p>
               </div>
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
@@ -201,14 +217,24 @@ export default function HasilSMARTPage() {
                 </p>
                 <p className="text-xs text-yellow-600 mb-1">Skor 0.15 - 0.49</p>
                 <p className="text-2xl font-bold text-yellow-900">
-                  {hasilSMART.filter((h) => h.rekomendasi.includes("dikurangi")).length}
+                  {
+                    hasilSMART.filter((h) =>
+                      h.rekomendasi.includes("dikurangi"),
+                    ).length
+                  }
                 </p>
               </div>
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                 <p className="text-sm text-red-700 font-medium">Dihentikan</p>
                 <p className="text-xs text-red-600 mb-1">Skor ≤ 0.14</p>
                 <p className="text-2xl font-bold text-red-900">
-                  {hasilSMART.filter((h) => h.rekomendasi.includes("Dihentikan") || h.rekomendasi === "hentikan").length}
+                  {
+                    hasilSMART.filter(
+                      (h) =>
+                        h.rekomendasi.includes("Dihentikan") ||
+                        h.rekomendasi === "hentikan",
+                    ).length
+                  }
                 </p>
               </div>
             </div>
@@ -290,8 +316,12 @@ export default function HasilSMARTPage() {
                     <TrendingUp className="w-4 h-4" />
                   </div>
                   <div>
-                    <p className="font-medium text-green-800">Skor 0.80 - 1.00</p>
-                    <p className="text-sm text-gray-700">Dilanjutkan ditambah jumlah 20%</p>
+                    <p className="font-medium text-green-800">
+                      Skor 0.80 - 1.00
+                    </p>
+                    <p className="text-sm text-gray-700">
+                      Dilanjutkan ditambah jumlah 20%
+                    </p>
                     <p className="text-xs text-gray-500 mt-1">
                       Produk sangat laku, tingkatkan stok 20%
                     </p>
@@ -302,8 +332,12 @@ export default function HasilSMARTPage() {
                     <Minus className="w-4 h-4" />
                   </div>
                   <div>
-                    <p className="font-medium text-blue-800">Skor 0.50 - 0.79</p>
-                    <p className="text-sm text-gray-700">Dilanjutkan jumlah tetap</p>
+                    <p className="font-medium text-blue-800">
+                      Skor 0.50 - 0.79
+                    </p>
+                    <p className="text-sm text-gray-700">
+                      Dilanjutkan jumlah tetap
+                    </p>
                     <p className="text-xs text-gray-500 mt-1">
                       Produk cukup laku, pertahankan stok
                     </p>
@@ -314,8 +348,12 @@ export default function HasilSMARTPage() {
                     <TrendingDown className="w-4 h-4" />
                   </div>
                   <div>
-                    <p className="font-medium text-yellow-800">Skor 0.15 - 0.49</p>
-                    <p className="text-sm text-gray-700">Dilanjutkan dikurangi jumlah 20%</p>
+                    <p className="font-medium text-yellow-800">
+                      Skor 0.15 - 0.49
+                    </p>
+                    <p className="text-sm text-gray-700">
+                      Dilanjutkan dikurangi jumlah 20%
+                    </p>
                     <p className="text-xs text-gray-500 mt-1">
                       Produk kurang laku, kurangi stok 20%
                     </p>

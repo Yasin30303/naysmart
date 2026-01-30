@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { trpc } from "@/lib/trpc/client";
 import { useSession, UserWithRole } from "@/lib/auth-client";
+import { getTodayUTC } from "@/lib/utils";
 import { Package, ListChecks, ShoppingCart, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -13,24 +14,23 @@ export default function DashboardPage() {
   const userRole = user?.role || "staf";
 
   // Stabilize today's date to prevent infinite re-renders
-  const today = useMemo(() => {
-    const now = new Date();
-    // Reset to start of day to ensure consistent date object
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  }, []);
+  // Use UTC date to match database storage format
+  const today = useMemo(() => getTodayUTC(), []);
 
   // Queries untuk statistik
   const { data: produkList } = trpc.produk.list.useQuery();
   const { data: kriteriaList } = trpc.kriteria.list.useQuery();
   const { data: bobotInfo } = trpc.kriteria.getTotalBobot.useQuery();
 
-  const { data: penjualanHariIni } = trpc.penjualan.listByDate.useQuery({
-    tanggal: today,
-  });
+  const { data: penjualanHariIni } = trpc.penjualan.listByDate.useQuery(
+    { tanggal: today },
+    { refetchOnWindowFocus: true, staleTime: 0 },
+  );
 
-  const { data: hasilSMART } = trpc.smart.getHasil.useQuery({
-    tanggal: today,
-  });
+  const { data: hasilSMART } = trpc.smart.getHasil.useQuery(
+    { tanggal: today },
+    { refetchOnWindowFocus: true, staleTime: 0 },
+  );
 
   const stats = [
     {

@@ -9,6 +9,7 @@
 import { useState } from "react";
 import { trpc } from "@/lib/trpc/client";
 import { useSession, UserWithRole } from "@/lib/auth-client";
+import { getTodayString, parseToUTCDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,9 +28,7 @@ export default function PenjualanPage() {
   const user = session?.user as unknown as UserWithRole | undefined;
   const userRole = user?.role || "staf";
 
-  const [selectedDate, setSelectedDate] = useState<string>(
-    new Date().toISOString().split("T")[0],
-  );
+  const [selectedDate, setSelectedDate] = useState<string>(getTodayString());
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedProduk, setSelectedProduk] = useState("");
   const [jumlah, setJumlah] = useState("");
@@ -37,18 +36,26 @@ export default function PenjualanPage() {
   // Queries
   const { data: produkList } = trpc.produk.list.useQuery();
   const { data: penjualanList, refetch } = trpc.penjualan.listByDate.useQuery(
-    { tanggal: new Date(selectedDate) },
+    { tanggal: parseToUTCDate(selectedDate) },
     { enabled: !!selectedDate },
   );
-  const { data: stokList } = trpc.stokHarian.listByDate.useQuery(
-    { tanggal: new Date(selectedDate) },
-    { enabled: !!selectedDate },
-  );
+  const { data: stokList, refetch: refetchStok } =
+    trpc.stokHarian.listByDate.useQuery(
+      { tanggal: parseToUTCDate(selectedDate) },
+      { enabled: !!selectedDate },
+    );
+
+  // Get utils for query invalidation
+  const utils = trpc.useUtils();
 
   // Mutation
   const createMutation = trpc.penjualan.create.useMutation({
     onSuccess: () => {
       refetch();
+      refetchStok();
+      // Invalidate dashboard queries
+      utils.penjualan.listByDate.invalidate();
+      utils.stokHarian.listByDate.invalidate();
       setCart([]);
       alert("Transaksi berhasil disimpan!");
     },
@@ -131,7 +138,7 @@ export default function PenjualanPage() {
 
     if (confirm(`Proses transaksi dengan ${cart.length} item?`)) {
       createMutation.mutate({
-        tanggal: new Date(selectedDate),
+        tanggal: parseToUTCDate(selectedDate),
         items: cart.map((item) => ({
           produk_id: item.produk_id,
           jumlah: item.jumlah,

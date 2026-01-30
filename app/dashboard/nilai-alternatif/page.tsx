@@ -9,15 +9,21 @@
 
 import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc/client";
+import { getTodayString, parseToUTCDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Save, Calendar, RefreshCw, Zap, AlertCircle, CheckCircle } from "lucide-react";
+import {
+  Save,
+  Calendar,
+  RefreshCw,
+  Zap,
+  AlertCircle,
+  CheckCircle,
+} from "lucide-react";
 
 export default function NilaiAlternatifPage() {
-  const [selectedDate, setSelectedDate] = useState<string>(
-    new Date().toISOString().split("T")[0],
-  );
+  const [selectedDate, setSelectedDate] = useState<string>(getTodayString());
   const [nilaiData, setNilaiData] = useState<
     Record<string, Record<string, string>>
   >({}); // produk_id -> kriteria_id -> nilai
@@ -28,16 +34,15 @@ export default function NilaiAlternatifPage() {
   const { data: kriteriaList } = trpc.kriteria.list.useQuery();
   const { data: nilaiAlternatif, refetch } =
     trpc.smart.getNilaiAlternatif.useQuery(
-      { tanggal: new Date(selectedDate) },
+      { tanggal: parseToUTCDate(selectedDate) },
       { enabled: !!selectedDate },
     );
-  
+
   // Auto-calculate query
-  const { refetch: refetchAuto } = 
-    trpc.smart.getAutoCalculatedValues.useQuery(
-      { tanggal: new Date(selectedDate) },
-      { enabled: false } // Manual trigger only
-    );
+  const { refetch: refetchAuto } = trpc.smart.getAutoCalculatedValues.useQuery(
+    { tanggal: parseToUTCDate(selectedDate) },
+    { enabled: false }, // Manual trigger only
+  );
 
   // Mutation
   const bulkInputMutation = trpc.smart.bulkInputNilaiAlternatif.useMutation({
@@ -71,10 +76,10 @@ export default function NilaiAlternatifPage() {
   const handleAutoLoad = async () => {
     setAutoLoadStatus("loading");
     const result = await refetchAuto();
-    
+
     if (result.data) {
       const { values, summary } = result.data;
-      
+
       // Convert to string format for input fields
       const dataMap: Record<string, Record<string, string>> = {};
       for (const [produkId, kriteriaValues] of Object.entries(values)) {
@@ -83,9 +88,9 @@ export default function NilaiAlternatifPage() {
           dataMap[produkId][kriteriaId] = nilai.toString();
         }
       }
-      
+
       setNilaiData(dataMap);
-      
+
       // Show status
       if (!summary.hasStokData && !summary.hasPenjualanData) {
         setAutoLoadStatus("no-data");
@@ -153,7 +158,7 @@ export default function NilaiAlternatifPage() {
 
     if (confirm("Simpan semua nilai alternatif?")) {
       bulkInputMutation.mutate({
-        tanggal: new Date(selectedDate),
+        tanggal: parseToUTCDate(selectedDate),
         data: dataArray,
       });
     }
@@ -191,7 +196,7 @@ export default function NilaiAlternatifPage() {
                 />
               </div>
             </div>
-            
+
             <Button
               onClick={handleAutoLoad}
               variant="outline"
@@ -200,11 +205,8 @@ export default function NilaiAlternatifPage() {
               <Zap className="w-4 h-4 mr-2" />
               Auto-Load dari Data
             </Button>
-            
-            <Button
-              onClick={handleSave}
-              disabled={bulkInputMutation.isPending}
-            >
+
+            <Button onClick={handleSave} disabled={bulkInputMutation.isPending}>
               <Save className="w-4 h-4 mr-2" />
               {bulkInputMutation.isPending ? "Menyimpan..." : "Simpan Semua"}
             </Button>
@@ -212,18 +214,28 @@ export default function NilaiAlternatifPage() {
 
           {/* Auto-Load Status */}
           {autoLoadStatus && (
-            <div className={`mb-6 p-4 rounded-lg flex items-start gap-3 ${
-              autoLoadStatus === "success" ? "bg-green-50 border border-green-200" :
-              autoLoadStatus === "loading" ? "bg-blue-50 border border-blue-200" :
-              autoLoadStatus === "error" ? "bg-red-50 border border-red-200" :
-              "bg-yellow-50 border border-yellow-200"
-            }`}>
+            <div
+              className={`mb-6 p-4 rounded-lg flex items-start gap-3 ${
+                autoLoadStatus === "success"
+                  ? "bg-green-50 border border-green-200"
+                  : autoLoadStatus === "loading"
+                    ? "bg-blue-50 border border-blue-200"
+                    : autoLoadStatus === "error"
+                      ? "bg-red-50 border border-red-200"
+                      : "bg-yellow-50 border border-yellow-200"
+              }`}
+            >
               {autoLoadStatus === "success" && (
                 <>
                   <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
                   <div>
-                    <p className="font-medium text-green-800">Data berhasil dimuat!</p>
-                    <p className="text-sm text-green-700">Nilai kriteria telah dihitung dari data penjualan dan stok. Anda dapat mengedit jika perlu.</p>
+                    <p className="font-medium text-green-800">
+                      Data berhasil dimuat!
+                    </p>
+                    <p className="text-sm text-green-700">
+                      Nilai kriteria telah dihitung dari data penjualan dan
+                      stok. Anda dapat mengedit jika perlu.
+                    </p>
                   </div>
                 </>
               )}
@@ -237,8 +249,13 @@ export default function NilaiAlternatifPage() {
                 <>
                   <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5" />
                   <div>
-                    <p className="font-medium text-yellow-800">Tidak ada data untuk tanggal ini</p>
-                    <p className="text-sm text-yellow-700">Pastikan sudah ada data stok harian dan penjualan untuk tanggal {selectedDate}</p>
+                    <p className="font-medium text-yellow-800">
+                      Tidak ada data untuk tanggal ini
+                    </p>
+                    <p className="text-sm text-yellow-700">
+                      Pastikan sudah ada data stok harian dan penjualan untuk
+                      tanggal {selectedDate}
+                    </p>
                   </div>
                 </>
               )}
@@ -246,8 +263,13 @@ export default function NilaiAlternatifPage() {
                 <>
                   <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5" />
                   <div>
-                    <p className="font-medium text-yellow-800">Data stok tidak ditemukan</p>
-                    <p className="text-sm text-yellow-700">Nilai penjualan dimuat, tapi stok sisa bernilai 0. Tambahkan data stok harian terlebih dahulu.</p>
+                    <p className="font-medium text-yellow-800">
+                      Data stok tidak ditemukan
+                    </p>
+                    <p className="text-sm text-yellow-700">
+                      Nilai penjualan dimuat, tapi stok sisa bernilai 0.
+                      Tambahkan data stok harian terlebih dahulu.
+                    </p>
                   </div>
                 </>
               )}
@@ -255,15 +277,22 @@ export default function NilaiAlternatifPage() {
                 <>
                   <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5" />
                   <div>
-                    <p className="font-medium text-yellow-800">Data penjualan tidak ditemukan</p>
-                    <p className="text-sm text-yellow-700">Nilai stok dimuat, tapi penjualan bernilai 0. Tambahkan transaksi penjualan terlebih dahulu.</p>
+                    <p className="font-medium text-yellow-800">
+                      Data penjualan tidak ditemukan
+                    </p>
+                    <p className="text-sm text-yellow-700">
+                      Nilai stok dimuat, tapi penjualan bernilai 0. Tambahkan
+                      transaksi penjualan terlebih dahulu.
+                    </p>
                   </div>
                 </>
               )}
               {autoLoadStatus === "error" && (
                 <>
                   <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
-                  <p className="font-medium text-red-800">Gagal memuat data. Silakan coba lagi.</p>
+                  <p className="font-medium text-red-800">
+                    Gagal memuat data. Silakan coba lagi.
+                  </p>
                 </>
               )}
             </div>
@@ -272,8 +301,11 @@ export default function NilaiAlternatifPage() {
           {/* Info */}
           <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm text-blue-800">
-              <strong>Petunjuk:</strong> Klik <strong>&quot;Auto-Load dari Data&quot;</strong> untuk mengisi nilai otomatis dari data penjualan dan stok. 
-              Anda dapat mengedit nilai secara manual jika diperlukan. Pastikan semua kolom terisi sebelum menyimpan.
+              <strong>Petunjuk:</strong> Klik{" "}
+              <strong>&quot;Auto-Load dari Data&quot;</strong> untuk mengisi
+              nilai otomatis dari data penjualan dan stok. Anda dapat mengedit
+              nilai secara manual jika diperlukan. Pastikan semua kolom terisi
+              sebelum menyimpan.
             </p>
           </div>
 
