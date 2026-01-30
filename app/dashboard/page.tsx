@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { trpc } from "@/lib/trpc/client";
 import { useSession, UserWithRole } from "@/lib/auth-client";
 import { Package, ListChecks, ShoppingCart, TrendingUp } from "lucide-react";
@@ -11,12 +12,18 @@ export default function DashboardPage() {
   const user = session?.user as unknown as UserWithRole | undefined;
   const userRole = user?.role || "staf";
 
+  // Stabilize today's date to prevent infinite re-renders
+  const today = useMemo(() => {
+    const now = new Date();
+    // Reset to start of day to ensure consistent date object
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  }, []);
+
   // Queries untuk statistik
   const { data: produkList } = trpc.produk.list.useQuery();
   const { data: kriteriaList } = trpc.kriteria.list.useQuery();
   const { data: bobotInfo } = trpc.kriteria.getTotalBobot.useQuery();
 
-  const today = new Date();
   const { data: penjualanHariIni } = trpc.penjualan.listByDate.useQuery({
     tanggal: today,
   });
